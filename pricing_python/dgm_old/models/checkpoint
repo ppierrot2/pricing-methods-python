@@ -1,0 +1,2 @@
+model_checkpoint_path: "c:\\users\\pasca\\documents\\awalee\\pricing-python\\pricing_python\\dgm/models/curr_model.ckpt"
+all_model_checkpoint_paths: "c:\\users\\pasca\\documents\\awalee\\pricing-python\\pricing_python\\dgm/models/curr_model.ckpt"
