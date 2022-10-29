@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
-from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.base import RegressorMixin
 from .diffusion import BlackScholesProcess, BlackScholesProcessMulti
 
 
