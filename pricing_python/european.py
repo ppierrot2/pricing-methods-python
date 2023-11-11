@@ -52,9 +52,45 @@ def eur_heston_price(model: HestonProcess, S0, K, riskfree,
     return npv
 
 
-def eur_fourier_price(model: (BlackScholesProcess, HestonProcess)):
-    # ToDo
-    pass
+def eur_fourier_price(model: (BlackScholesProcess, HestonProcess),
+                      S0, K, riskfree, maturity, call=True, n_coef=10):
+
+    # integration bonds
+    a, b = model.density_integration_bounds(S0, riskfree, maturity)
+
+    # coefficient factors
+    coef = []
+    if call:
+        coef_0 = K * (np.log(K) - b - 1) + np.exp(b)
+        coef.append(coef_0)
+        for i in range(1, n_coef):
+            coef.append(
+                (np.exp(b) - K * (b - a) * np.sin(i * np.pi / (b - a) * (a - np.log(K))) / (i * np.pi)  - K * np.cos(
+                    i * np.pi / (b - a) * (a - np.log(K))) ) / (1 + i ** 2 * np.pi ** 2 / (b - a) ** 2)
+
+            )
+    else:
+        coef_0 = K * (np.log(K) - a - 1) + np.exp(a)
+        coef.append(coef_0)
+        for i in range(1, n_coef):
+            coef.append(
+                (np.exp(a) - K * (b - a) * np.sin(i * np.pi / (b - a) * (a - np.log(K))) / (i * np.pi) - K * np.cos(
+                    i * np.pi / (b - a) * (a - np.log(K)))) \
+                / (1 + i ** 2 * np.pi ** 2 / (b - a) ** 2)
+            )
+
+    discount_factor = np.exp(-riskfree * maturity)
+    dens_decompo = coef[0]
+    for i in range(1, n_coef):
+        import pdb; pdb.set_trace()
+        dens_decompo += 2 * model.characteristic_fun(i * np.pi / (b - a), init_val=S0,
+                                                     riskfree=riskfree, maturity=maturity) * \
+                        np.exp(-1j * i * np.pi * a / (b - a)) * coef[i]
+
+    dens_decompo = np.real(dens_decompo) / (b-a)
+    npv = discount_factor * dens_decompo
+
+    return npv
 
 
 def eur_fd_price(model: BlackScholesProcess, S0, K, riskfree,
