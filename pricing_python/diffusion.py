@@ -22,13 +22,19 @@ class BlackScholesProcess:
 
     def simulate_maturity(self, n_path, init_val, riskfree, maturity):
         DW = np.sqrt(maturity)*np.random.randn(n_path)
-        s_T = init_val*np.exp(maturity*(riskfree - 0.5*self.sigma**2) + self.sigma*DW)
+        s_T = init_val * np.exp(maturity * (riskfree - 0.5 * self.sigma ** 2) + self.sigma * DW)
         s_T_anti = init_val * np.exp(maturity * (riskfree - 0.5 * self.sigma ** 2) + self.sigma * -DW)
         return s_T, s_T_anti
 
-    def characteristic_fun(self):
-        # ToDo
-        pass
+    def characteristic_fun(self, x, init_val, riskfree, maturity):
+        m = np.log(init_val) + (riskfree - 0.5 * self.sigma ** 2) * maturity
+        return np.exp(1j * x * m - 0.5 * x ** 2 * self.sigma ** 2 ** maturity)
+
+    def density_integration_bounds(self, init_val, riskfree, maturity):
+        # integration bonds (mean(log(S_T))+-10*std dev)
+        a = np.log(init_val) + riskfree * maturity - 10 * self.sigma * np.sqrt(maturity)
+        b = np.log(init_val) + riskfree * maturity + 10 * self.sigma * np.sqrt(maturity)
+        return a, b
 
 
 class BlackScholesProcessMulti:
@@ -126,7 +132,7 @@ class HestonProcess:
         dW_S = np.random.randn(n_path, n_step)*np.sqrt(delta_t)
         dW_V = dW_S + np.sqrt(1 - self.rho**2)*np.random.randn(n_path, n_step)*np.sqrt(delta_t)
 
-        for i in range(1, n_step+1):
+        for i in range(1, n_step):
             if proba == 'risk-neutral':
                 S[:, i] = S[:, i - 1] + riskfree * S[:, i - 1] * delta_t + \
                           np.sqrt(V[:, i - 1]) * S[:, i - 1] * dW_S[:, i - 1]
@@ -142,9 +148,37 @@ class HestonProcess:
 
         return S, S_anti
 
-    def characteristic_fun(self):
-        # ToDo
-        pass
+    def characteristic_fun(self, x, init_val, riskfree, maturity):
+
+        d = np.sqrt((self.kappa - 1j * self.rho * self.gamma * x) ** 2 + (x ** 2 + 1j * x) * self.gamma ** 2)
+        g = (self.kappa - 1j * self.rho * self.gamma * x - d) / (self.kappa - 1j * self.rho * self.gamma * x + d)
+
+        phi = np.exp(1j * x * riskfree * maturity + self.v_init / self.gamma ** 2 \
+                     * (1 - np.exp(-d * maturity)) \
+                     / (1 - g * np.exp(-d * maturity)) \
+                     * (self.kappa - 1j * self.rho * self.gamma * x - d))
+
+        phi = phi * np.exp(self.kappa * self.v / self.gamma ** 2 * \
+                           (maturity * (self.kappa - 1j * self.rho * self.gamma * x - d) \
+                            - 2 * np.log((1 - g * np.exp(-d * maturity)) / (1 - g))))
+
+        return phi
+
+    def density_integration_bounds(self, init_val, riskfree, maturity):
+
+        m = np.log(init_val) + riskfree * maturity + (1 - np.exp(self.kappa * maturity)) * (self.v - self.v_init) / (
+                2 * self.kappa) - 0.5 * self.v * maturity
+        v = self.v / (8 * self.kappa ** 3) * (
+                -self.gamma ** 2 * np.exp(-2 * self.kappa * maturity) + 4 * self.gamma * np.exp(
+            -self.kappa * maturity) * (self.gamma - 2 * self.kappa * self.rho)
+                + 2 * self.kappa * maturity * (
+            4 * self.kappa ** 2 + self.gamma ** 2 - 4 * self.kappa * self.rho * self.gamma) + self.gamma * (
+                        8 * self.kappa * self.rho - 3 * self.gamma))
+
+        a = m - 20 * np.sqrt(np.abs(v))
+        b = m + 20 * np.sqrt(np.abs(v))
+
+        return a, b
 
 
 class HestonProcessMulti:
@@ -152,4 +186,11 @@ class HestonProcessMulti:
     pass
 
 
+class MertonJumpProcess:
+
+    def __init__(self, sigma, lambda_jump, m_jump, v_jump):
+        self.sigma = sigma
+        self.lambda_jump = lambda_jump
+        self.m_jump = m_jump
+        self.v_jump = v_jump
 
