@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.random import standard_normal, seed, uniform, randint
 from scipy.stats import norm
-from .diffusion import HestonProcess, BlackScholesProcess
+from .diffusion import HestonProcess, BlackScholesProcess, MertonJumpProcess
 from scipy.linalg import solve_triangular, lu
 
 
@@ -15,7 +15,22 @@ def eur_bs_analytical_price(S0, K, riskfree, sigma, maturity, call=True):
         return K * np.exp(-riskfree * maturity) * norm.cdf(-d2) - S0 * norm.cdf(-d1)
 
 
-def eur_mc_price(model: (BlackScholesProcess, HestonProcess),
+def eur_merton_analytical_price(model: MertonJumpProcess, S0, K, riskfree, maturity, call=True):
+    npv = 0
+    k = np.exp(model.m_jump + model.v_jump ** 2 / 2) - 1
+    for i in range(50):
+        coef = np.exp(-model.lambda_jump) * model.lambda_jump ** i * maturity ** i / np.math.factorial(i)
+        npv += coef * eur_bs_analytical_price(
+            S0=S0 * np.exp(i * model.m_jump + i * model.v_jump ** 2 / 2 - model.lambda_jump * k * maturity),
+            K=K,
+            riskfree=riskfree,
+            sigma=np.sqrt(model.sigma ** 2 + i * model.v_jump ** 2 / maturity),
+            maturity=maturity,
+            call=call)
+    return npv
+
+
+def eur_mc_price(model: (BlackScholesProcess, HestonProcess, MertonJumpProcess),
                         S0: float, K: float,
                         riskfree: float,
                         maturity: float, call=True,
@@ -27,14 +42,20 @@ def eur_mc_price(model: (BlackScholesProcess, HestonProcess),
     elif isinstance(model, HestonProcess):
         S, S_anti = model.simulate(n_path=n_path, n_step=n_step, init_val=S0, riskfree=riskfree,
                                    maturity=maturity, proba='risk-neutral')
+    elif isinstance(model, MertonJumpProcess):
+        S = model.simulate(n_path=n_path, n_step=n_step, init_val=S0, riskfree=riskfree, maturity=maturity)
+        S_anti = None
     else:
-        raise NotImplementedError
+        raise NotImplementedError('MC not implemented for this model')
 
     payoffs = S[:, -1] - K if call else K - S[:, -1]
-    payoffs_anti = S_anti[:, -1] - K if call else K - S_anti[:, -1]
     payoffs[payoffs < 0] = 0
-    payoffs_anti[payoffs_anti < 0] = 0
-    payoffs_avg = (payoffs + payoffs_anti) / 2
+    if S_anti is not None:
+        payoffs_anti = S_anti[:, -1] - K if call else K - S_anti[:, -1]
+        payoffs_anti[payoffs_anti < 0] = 0
+        payoffs_avg = (payoffs + payoffs_anti) / 2
+    else:
+        payoffs_avg = payoffs
     npv = np.exp(-riskfree * maturity) * np.mean(payoffs_avg)
     stdev = np.exp(-riskfree * maturity) * np.std(payoffs_avg) / np.sqrt(n_path)
     return npv, stdev
@@ -82,7 +103,6 @@ def eur_fourier_price(model: (BlackScholesProcess, HestonProcess),
     discount_factor = np.exp(-riskfree * maturity)
     dens_decompo = coef[0]
     for i in range(1, n_coef):
-        import pdb; pdb.set_trace()
         dens_decompo += 2 * model.characteristic_fun(i * np.pi / (b - a), init_val=S0,
                                                      riskfree=riskfree, maturity=maturity) * \
                         np.exp(-1j * i * np.pi * a / (b - a)) * coef[i]

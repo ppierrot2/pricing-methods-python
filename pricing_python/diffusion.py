@@ -8,16 +8,13 @@ class BlackScholesProcess:
 
     def simulate(self, n_path, n_step, init_val, riskfree, maturity):
         delta_t = maturity / n_step
-        paths = np.zeros((n_path, n_step))
-        paths_anti = np.zeros((n_path, n_step))  # antithetic
-        paths[:, 0] = init_val
-        paths_anti[:, 0] = init_val
-        for m in range(1, n_step):
-            dW = np.sqrt(delta_t) * np.random.randn(n_path)
-            paths[:, m] = paths[:, m - 1] * np.exp(delta_t * (riskfree - 0.5 * self.sigma ** 2) + self.sigma * dW)
-            paths_anti[:, m] = paths_anti[:, m - 1] * np.exp(
-                delta_t * (riskfree - 0.5 * self.sigma ** 2) + self.sigma * -dW)
-
+        paths = np.ones((n_path, n_step))
+        paths_anti = np.ones((n_path, n_step))  # antithetic
+        dW = np.sqrt(delta_t) * np.random.randn(n_path, n_step-1)
+        paths[:, 1:] = np.cumprod(np.exp(delta_t * (riskfree - 0.5 * self.sigma ** 2) + self.sigma * dW), axis=1)
+        paths_anti[:, 1:] = np.cumprod(np.exp(delta_t * (riskfree - 0.5 * self.sigma ** 2) + self.sigma * -dW), axis=1)
+        paths = paths * init_val
+        paths_anti = paths_anti * init_val
         return paths, paths_anti
 
     def simulate_maturity(self, n_path, init_val, riskfree, maturity):
@@ -170,7 +167,7 @@ class HestonProcess:
                 2 * self.kappa) - 0.5 * self.v * maturity
         v = self.v / (8 * self.kappa ** 3) * (
                 -self.gamma ** 2 * np.exp(-2 * self.kappa * maturity) + 4 * self.gamma * np.exp(
-            -self.kappa * maturity) * (self.gamma - 2 * self.kappa * self.rho)
+            - self.kappa * maturity) * (self.gamma - 2 * self.kappa * self.rho)
                 + 2 * self.kappa * maturity * (
             4 * self.kappa ** 2 + self.gamma ** 2 - 4 * self.kappa * self.rho * self.gamma) + self.gamma * (
                         8 * self.kappa * self.rho - 3 * self.gamma))
@@ -181,11 +178,6 @@ class HestonProcess:
         return a, b
 
 
-class HestonProcessMulti:
-    # ToDo
-    pass
-
-
 class MertonJumpProcess:
 
     def __init__(self, sigma, lambda_jump, m_jump, v_jump):
@@ -194,3 +186,20 @@ class MertonJumpProcess:
         self.m_jump = m_jump
         self.v_jump = v_jump
 
+    def simulate(self, n_path, n_step, init_val, riskfree, maturity):
+        delta_t = maturity / n_step
+        paths = np.ones((n_path, n_step))
+        dW = np.sqrt(delta_t) * np.random.randn(n_path, n_step-1)
+        delta_X = np.random.normal(self.m_jump, self.v_jump, size=(n_path, n_step-1))
+        poisson = np.random.poisson(self.lambda_jump * delta_t, size=(n_path, n_step-1))
+        jump_part = np.exp(np.cumsum(delta_X * poisson, axis=1))
+        paths[:, 1:] = np.cumprod(np.exp(delta_t * (riskfree - 0.5 * self.sigma ** 2 - self.lambda_jump * (
+                    self.m_jump + self.v_jump ** 2 / 2)) + self.sigma * dW), axis=1)
+        paths[:, 1:] *= jump_part
+
+        paths *= init_val
+
+        return paths
+
+    def characteristic_fun(self, n_path, init_val, riskfree, maturity):
+        pass
