@@ -216,3 +216,22 @@ class MertonJumpProcess:
         b = np.log(init_val) + (
                     riskfree - self.sigma ** 2 / 2 - k * self.lambda_jump) * maturity + self.lambda_jump * maturity * self.m_jump + 10 * std_dev
         return a, b
+
+
+class VarianceGammaProcess:
+
+    def __init__(self, sigma, mu, kappa):
+        self.sigma = sigma
+        self.mu = mu
+        self.kappa = kappa
+
+    def simulate(self, n_path, n_step, init_val, riskfree, maturity):
+        pass
+
+    def characteristic_fun(self, x, init_val, riskfree, maturity):
+        phi = (1 + self.kappa * self.sigma ** 2 * x ** 2 / 2 - 1j * self.mu * self.kappa * x) ** (
+                    -self.kappa * maturity)
+        phi *= np.exp(
+            1j * x * (riskfree + np.log(1 - self.kappa * self.mu - self.sigma ** 2 * self.mu / 2) / self.mu) * maturity)
+
+        return phi
