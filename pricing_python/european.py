@@ -73,7 +73,7 @@ def eur_heston_price(model: HestonProcess, S0, K, riskfree,
     return npv
 
 
-def eur_fourier_price(model: (BlackScholesProcess, HestonProcess),
+def eur_fourier_price(model: (BlackScholesProcess, HestonProcess, MertonJumpProcess),
                       S0, K, riskfree, maturity, call=True, n_coef=10):
 
     # integration bonds

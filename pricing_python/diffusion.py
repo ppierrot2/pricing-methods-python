@@ -201,5 +201,18 @@ class MertonJumpProcess:
 
         return paths
 
-    def characteristic_fun(self, n_path, init_val, riskfree, maturity):
-        pass
+    def characteristic_fun(self, x, init_val, riskfree, maturity):
+        k = np.exp(self.m_jump + self.v_jump ** 2 / 2) - 1
+        psi = self.lambda_jump * (np.exp(1j * x * self.m_jump - self.v_jump ** 2 * x ** 2 / 2) - 1) + 1j * x * (
+                    riskfree - self.sigma ** 2 / 2 - self.lambda_jump * k) - self.sigma ** 2 * x ** 2 / 2
+        phi = np.exp(psi * maturity + 1j * x * np.log(init_val))
+        return phi
+
+    def density_integration_bounds(self, init_val, riskfree, maturity):
+        k = np.exp(self.m_jump + self.v_jump ** 2 / 2) - 1
+        std_dev = np.sqrt(self.sigma ** 2 * maturity + 50 * self.v_jump ** 2)
+        a = np.log(init_val) + (
+                    riskfree - self.sigma ** 2 / 2 - k * self.lambda_jump) * maturity + self.lambda_jump * maturity * self.m_jump - 10 * std_dev
+        b = np.log(init_val) + (
+                    riskfree - self.sigma ** 2 / 2 - k * self.lambda_jump) * maturity + self.lambda_jump * maturity * self.m_jump + 10 * std_dev
+        return a, b
