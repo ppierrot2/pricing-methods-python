@@ -114,8 +114,8 @@ class HestonProcess:
     def simulate(self, n_path, n_step, init_val, riskfree, maturity, proba='risk-neutral'):
 
         delta_t = maturity / n_step
-        S = np.zeros((n_path, n_step+1))
-        V = np.zeros((n_path, n_step+1))
+        S = np.zeros((n_path, n_step))
+        V = np.zeros((n_path, n_step))
         V_anti = np.zeros((n_path, n_step))  # antithetic variable
         S[:, 0] = init_val
         V[:, 0] = self.v_init
@@ -126,8 +126,8 @@ class HestonProcess:
             S_anti = np.zeros((n_path, n_step))
             S_anti[:, 0] = init_val
 
-        dW_S = np.random.randn(n_path, n_step)*np.sqrt(delta_t)
-        dW_V = dW_S + np.sqrt(1 - self.rho**2)*np.random.randn(n_path, n_step)*np.sqrt(delta_t)
+        dW_S = np.random.randn(n_path, n_step) * np.sqrt(delta_t)
+        dW_V = self.rho * dW_S + np.sqrt(1 - self.rho ** 2) * np.random.randn(n_path, n_step) * np.sqrt(delta_t)
 
         for i in range(1, n_step):
             if proba == 'risk-neutral':
@@ -150,7 +150,7 @@ class HestonProcess:
         d = np.sqrt((self.kappa - 1j * self.rho * self.gamma * x) ** 2 + (x ** 2 + 1j * x) * self.gamma ** 2)
         g = (self.kappa - 1j * self.rho * self.gamma * x - d) / (self.kappa - 1j * self.rho * self.gamma * x + d)
 
-        phi = np.exp(1j * x * riskfree * maturity + self.v_init / self.gamma ** 2 \
+        phi = np.exp(1j * x * (np.log(init_val) + riskfree * maturity) + self.v_init / self.gamma ** 2 \
                      * (1 - np.exp(-d * maturity)) \
                      / (1 - g * np.exp(-d * maturity)) \
                      * (self.kappa - 1j * self.rho * self.gamma * x - d))
