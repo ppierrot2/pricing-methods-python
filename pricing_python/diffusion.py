@@ -210,28 +210,42 @@ class MertonJumpProcess:
 
     def density_integration_bounds(self, init_val, riskfree, maturity):
         k = np.exp(self.m_jump + self.v_jump ** 2 / 2) - 1
-        std_dev = np.sqrt(self.sigma ** 2 * maturity + 50 * self.v_jump ** 2)
-        a = np.log(init_val) + (
-                    riskfree - self.sigma ** 2 / 2 - k * self.lambda_jump) * maturity + self.lambda_jump * maturity * self.m_jump - 10 * std_dev
-        b = np.log(init_val) + (
-                    riskfree - self.sigma ** 2 / 2 - k * self.lambda_jump) * maturity + self.lambda_jump * maturity * self.m_jump + 10 * std_dev
+        m = np.log(init_val) + (
+                    riskfree - self.sigma ** 2 / 2 - k * self.lambda_jump) * maturity + self.lambda_jump * maturity * self.m_jump
+        v = self.sigma ** 2 * maturity + 50 * self.v_jump ** 2
+
+        a = m - 10 * np.sqrt(v)
+        b = m + 10 * np.sqrt(v)
         return a, b
 
 
 class VarianceGammaProcess:
 
-    def __init__(self, sigma, mu, kappa):
+    def __init__(self, sigma, mu, nu):
         self.sigma = sigma
         self.mu = mu
-        self.kappa = kappa
+        self.nu = nu
 
     def simulate(self, n_path, n_step, init_val, riskfree, maturity):
         pass
 
     def characteristic_fun(self, x, init_val, riskfree, maturity):
-        phi = (1 + self.kappa * self.sigma ** 2 * x ** 2 / 2 - 1j * self.mu * self.kappa * x) ** (
-                    -self.kappa * maturity)
+        phi = (1 + self.nu * self.sigma ** 2 * x ** 2 / 2 - 1j * self.mu * self.nu * x) ** (
+                    - maturity / self.nu)
         phi *= np.exp(
-            1j * x * (riskfree + np.log(1 - self.kappa * self.mu - self.sigma ** 2 * self.mu / 2) / self.mu) * maturity)
+            1j * x * (np.log(init_val) + (riskfree + np.log(
+                1 - self.nu * self.mu - self.sigma ** 2 * self.mu / 2) / self.mu) * maturity))
 
         return phi
+
+    def density_integration_bounds(self, init_val, riskfree, maturity):
+
+        m = np.log(init_val) + (riskfree + self.mu) * maturity
+        v = (self.sigma ** 2 + self.nu * self.mu ** 2) * maturity + np.sqrt(
+            3 * (self.sigma ** 4 * self.nu + 2 * self.mu ** 4 * self.nu ** 3 \
+                 + 4 * self.sigma ** 2 * self.mu ** 2 * self.nu ** 2) * maturity)
+
+        a = m - 10 * np.sqrt(v)
+        b = m + 10 * np.sqrt(v)
+        return a, b
+
